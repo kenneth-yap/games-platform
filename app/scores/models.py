@@ -1,39 +1,40 @@
-"""The score data model.
+"""The Score model — the shared, game-agnostic score record.
 
-One model serves ALL games — the universal fields are columns, and the
-per-game variation lives in the flexible `details` field. Adding a new
-game NEVER requires changing this table.
-
-Mirrors the schema designed on paper:
-  id, user_id, game, value, created_at, details
+Mirrors the six-field schema designed on paper. ONE table serves every
+game: universal columns plus a flexible `details` JSON field for
+game-specific data. Adding a new game never alters this structure.
 """
 
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from sqlmodel import SQLModel, Field
+from sqlalchemy import Column, JSON
 
 
-@dataclass
-class Score:
-    """A single score record, game-agnostic.
+def _utc_now() -> datetime:
+    """Timezone-aware current time. Always store UTC; convert on display."""
+    return datetime.now(timezone.utc)
 
-    For now this is a plain in-memory dataclass — a clean Python
-    representation of the schema. When we add the database later, this
-    maps directly onto a database table with the same fields, so the
-    shape we commit to now is the shape we persist later.
-    """
 
-    user_id: str          # WHO — links to a user (auth comes later)
-    game: str             # WHICH game, e.g. "tetris" — from BaseGame.name
-    value: int            # the universal headline score, for ranking
-    details: dict = field(default_factory=dict)  # game-specific JSON data
+class Score(SQLModel, table=True):
+    """A single score record. Works identically for any game."""
 
-    # WHEN — defaults to "now" in UTC if not supplied. Always store time
-    # in UTC; convert to local only for display. Mixing timezones in
-    # storage is a classic, painful bug.
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    # Unique reference number for this record (the primary key).
+    id: int | None = Field(default=None, primary_key=True)
 
-    # The unique id is deliberately omitted for now — the database will
-    # generate it automatically when we add persistence. Inventing our
-    # own id scheme before then would be premature.
+    # WHO achieved it — links to a user (auth comes later).
+    user_id: int = Field(index=True)
+
+    # WHICH game produced it, e.g. "tetris". Indexed because we'll
+    # frequently filter "all scores for game X".
+    game: str = Field(index=True)
+
+    # The universal headline score — the number we rank by.
+    value: int
+
+    # WHEN it happened — essential for the AI to measure improvement
+    # over time. Stored UTC.
+    created_at: datetime = Field(default_factory=_utc_now)
+
+    # Flexible game-specific data, e.g. {"lines_cleared": 40, "level": 5}.
+    # The DB does NOT validate its contents — that's the contract's job.
+    details: dict = Field(default_factory=dict, sa_column=Column(JSON))
