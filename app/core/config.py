@@ -27,6 +27,16 @@ class Settings(BaseSettings):
     # git-ignored, so secrets never enter version control.
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    # Origins (frontend URLs) allowed to call this API cross-origin.
+    # Comma-separated in the environment; defaults to the local Vite dev
+    # server. In production this becomes your Vercel domain.
+    # SECURITY: list specific trusted origins, NEVER "*" with credentials.
+    cors_origins: str = "http://localhost:5173"
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Split the comma-separated origins string into a list."""
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 # A single shared settings instance, imported wherever config is needed.
 # Created once at startup; the rest of the app reads from this object.
