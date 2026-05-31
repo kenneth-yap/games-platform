@@ -13,6 +13,7 @@ from app.core.database import create_db_and_tables
 # seen won't get a table. As you add models (users, ai_usage), import
 # them here too.
 from app.scores import models as _score_models  # noqa: F401
+from app.scores.routes import router as scores_router
 
 
 @asynccontextmanager
@@ -30,6 +31,7 @@ async def lifespan(app: FastAPI):
 # The single application instance. Everything (routes, middleware,
 # startup hooks) will attach to this object as the project grows.
 app = FastAPI(title="Games Platform", lifespan=lifespan)
+app.include_router(scores_router)
 
 
 @app.get("/health")
