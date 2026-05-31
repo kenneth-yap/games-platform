@@ -9,3 +9,6 @@ __pycache__/
 # Logs & OS noise
 *.log
 .DS_Store
+
+# Local data
+*.db
