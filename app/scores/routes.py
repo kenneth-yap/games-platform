@@ -12,6 +12,9 @@ from app.core.database import get_session
 from app.games.registry import get_game
 from app.scores.models import Score
 
+from app.auth.dependencies import get_current_user
+from app.auth.models import User
+
 # A router groups related endpoints; main.py will mount it onto the app.
 router = APIRouter(prefix="/scores", tags=["scores"])
 
@@ -21,6 +24,7 @@ def submit_score(
     game_name: str,
     raw_data: dict,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ) -> Score:
     """Submit a raw score for a game; validate via the contract, then store.
 
@@ -43,7 +47,7 @@ def submit_score(
     #    TODO(auth): replace hardcoded user_id with the authenticated user
     #    once authentication exists. Placeholder lets us prove storage now.
     score = Score(
-        user_id=1,                # ← PLACEHOLDER, replaced when auth lands
+        user_id=current_user.id,                # ← PLACEHOLDER, replaced when auth lands
         game=game.name,
         value=value,
         details=details,

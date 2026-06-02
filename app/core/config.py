@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # git-ignored, so secrets never enter version control.
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    # Secret key for signing JWTs. MUST be set to a long random value in
+    # production (via environment). Anyone with this can forge tokens.
+    jwt_secret: str = "dev-only-insecure-secret-change-in-production"
+
     # Origins (frontend URLs) allowed to call this API cross-origin.
     # Comma-separated in the environment; defaults to the local Vite dev
     # server. In production this becomes your Vercel domain.
