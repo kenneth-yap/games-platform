@@ -15,6 +15,9 @@ from app.core.database import create_db_and_tables
 from app.scores import models as _score_models  # noqa: F401
 from app.scores.routes import router as scores_router
 
+from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import settings
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,6 +35,13 @@ async def lifespan(app: FastAPI):
 # startup hooks) will attach to this object as the project grows.
 app = FastAPI(title="Games Platform", lifespan=lifespan)
 app.include_router(scores_router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins_list,  # only trusted frontend origins
+    allow_credentials=True,                    # allow cookies/auth headers (needed later for auth)
+    allow_methods=["*"],                       # GET, POST, etc.
+    allow_headers=["*"],                       # allow all request headers
+)
 
 
 @app.get("/health")
