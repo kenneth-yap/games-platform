@@ -5,6 +5,7 @@ Wires the shared infrastructure to the app and exposes the API surface.
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import create_db_and_tables
 from app.core.config import settings
@@ -20,9 +21,8 @@ from app.scores.routes import router as scores_router
 from app.auth import models as _auth_models  # noqa: F401
 from app.auth.routes import router as auth_router
 
-from fastapi.middleware.cors import CORSMiddleware
-
-
+from app.ai import models as _ai_models  # noqa: F401
+from app.ai.routes import router as ai_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,6 +41,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Games Platform", lifespan=lifespan)
 app.include_router(scores_router)
 app.include_router(auth_router)
+app.include_router(ai_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,  # only trusted frontend origins
@@ -48,7 +49,6 @@ app.add_middleware(
     allow_methods=["*"],                       # GET, POST, etc.
     allow_headers=["*"],                       # allow all request headers
 )
-
 
 @app.get("/health")
 def health_check() -> dict[str, str]:
