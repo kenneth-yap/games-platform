@@ -12,7 +12,7 @@
 // Controls: arrows move/rotate, down soft-drops, space hard-drops, C holds.
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { isLoggedIn, logout, submitScore, listScores } from "./api/scores";
+import { isLoggedIn, logout, submitScore, listScores, getRecommendation } from "./api/scores";
 import AuthForm from "./AuthForm";
 
 // --- Game constants --------------------------------------------------------
@@ -125,6 +125,11 @@ function App() {
   const [loggedIn, setLoggedIn] = useState(isLoggedIn());
 
   const startTimeRef = useRef(null);
+  
+  const [advice, setAdvice] = useState(null);
+  const [adviceQuota, setAdviceQuota] = useState(null);   // { used, limit }
+  const [adviceLoading, setAdviceLoading] = useState(false);
+
 
   // Pull the next piece key from the queue, refilling the bag as needed so
   // there are always at least a few upcoming pieces to preview.
@@ -213,6 +218,10 @@ function App() {
   useEffect(() => {
     function onKey(e) {
       if (!running || !piece) return;
+      // These keys are the game's — stop the browser's default (scrolling).
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(e.key)) {
+        e.preventDefault();
+      }
       if (e.key === "ArrowLeft") move(0, -1);
       else if (e.key === "ArrowRight") move(0, 1);
       else if (e.key === "ArrowDown") move(1, 0);
@@ -220,11 +229,10 @@ function App() {
         const r = rotate(piece);
         if (!collides(r, grid)) setPiece(r);
       } else if (e.key === " ") {
-        e.preventDefault();
         let p = piece;
         while (!collides({ ...p, row: p.row + 1 }, grid)) p = { ...p, row: p.row + 1 };
         lockPiece(p, grid);
-      } else if (e.key === "c" || e.key === "C") {
+      } else if (e.key === "Shift") {   // ← changed from "c" — see point 3
         hold();
       }
     }
@@ -257,6 +265,19 @@ function App() {
       .catch((err) => setSubmitMsg(err.message));
   }, [gameOver, lines, level, loggedIn]);
 
+  async function handleGetAdvice() {
+  setAdviceLoading(true);
+  setAdvice(null);
+  try {
+    const result = await getRecommendation();
+    setAdvice(result.advice);
+    setAdviceQuota({ used: result.used_today, limit: result.daily_limit });
+  } catch (err) {
+    setAdvice(err.message);          // shows limit/auth/error message
+  } finally {
+    setAdviceLoading(false);
+  }
+}
   function startGame() {
     // Fresh bag, deal the first piece, reset everything.
     const { nextKey, queue: newQueue } = pullFromQueue([]);
@@ -298,6 +319,19 @@ function App() {
         ) : (
           <div style={{ marginBottom: "1rem" }}>
             <AuthForm onAuthChange={() => setLoggedIn(true)} />
+          </div>
+        )}
+
+        {/* Advice section — INSIDE the panel now */}
+        {loggedIn && (
+          <div style={styles.adviceSection}>
+            <button style={styles.button} onClick={handleGetAdvice} disabled={adviceLoading}>
+              {adviceLoading ? "Thinking..." : "Get advice"}
+            </button>
+            {adviceQuota && (
+              <p style={styles.quota}>{adviceQuota.used} of {adviceQuota.limit} used today</p>
+            )}
+            {advice && <p style={styles.advice}>{advice}</p>}
           </div>
         )}
 
@@ -368,6 +402,8 @@ function App() {
         </p>
       </div>
     </div>
+
+
   );
 }
 
@@ -413,6 +449,17 @@ const styles = {
   scoreRow: { display: "flex", justifyContent: "space-between", padding: "0.2rem 0", borderBottom: "1px solid #1c2029" },
   scoreDetail: { color: "#8a8f99" },
   hint: { marginTop: "1.5rem", fontSize: "0.75rem", color: "#5a5f6a" },
+
+  adviceSection: { marginBottom: "1rem", maxWidth: "320px", marginLeft: "auto", marginRight: "auto" },
+  quota: { fontSize: "0.72rem", color: "#8a8f99", marginTop: "0.4rem" },
+  advice: {
+    fontSize: "0.82rem", color: "#bfe6c0", marginTop: "0.6rem",
+    lineHeight: 1.5, textAlign: "left",
+    whiteSpace: "pre-wrap",       // preserve line breaks
+    wordBreak: "break-word",      // wrap long words instead of overflowing
+    overflowWrap: "break-word",   // belt-and-braces wrapping
+    background: "#10131a", padding: "0.6rem 0.8rem", borderRadius: "4px",
+  },
 };
 
 export default App;
