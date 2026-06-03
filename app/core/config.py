@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     # SECURITY: list specific trusted origins, NEVER "*" with credentials.
     cors_origins: str = "http://localhost:5173"
 
+    # Gemini API key, from the environment. Get one (free) from Google AI
+    # Studio. Defaults to empty so the app runs without it; the advisor
+    # endpoint will report a clear error if it's missing rather than crash.
+    gemini_api_key: str = ""
+
+    # Per-user daily cap on recommendation requests.
+    ai_daily_limit: int = 8
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Split the comma-separated origins string into a list."""
