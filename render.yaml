@@ -1,0 +1,10 @@
+# Render deployment configuration for the backend.
+# This declares the backend web service and its build/start commands.
+services:
+  - type: web
+    name: games-platform-api
+    runtime: python
+    # Install dependencies from the backend's requirements file.
+    buildCommand: "pip install -r requirements.txt"
+    # Start the server. NO --reload (dev only). Bind to Render's $PORT.
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
