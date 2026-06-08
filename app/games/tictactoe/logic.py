@@ -49,25 +49,25 @@ class TicTacToe(Game):
         # --- Step 2: type & sanity checks -------------------------------
         # The DB stores `details` as opaque JSON, so plausibility is OUR
         # responsibility. Reject negatives and wrong types outright.
-        for field_name, field_value in ("moves", moves):
-            if not isinstance(field_value, int) or field_value < 0:
-                raise ValueError(
-                    f"{field_name} must be a non-negative integer, "
-                    f"got {field_value!r}"
-                )
-            
-        for field_name, field_value in ("outcome", outcome):
-            if not 'win' or 'lose' or 'draw':
-                raise ValueError(
-                    f"{field_name} must be win, lose or draw, "
-                    f"got {field_value!r}"
-                )
+        for field_name, field_value in (("moves", moves), ("outcome", outcome)):
+            if field_name == 'moves':
+                if not isinstance(field_value, int) or field_value < 0:
+                    raise ValueError(
+                        f"{field_name} must be a non-negative integer, "
+                        f"got {field_value!r}"
+                    )
+            score_scenarios = {"win": 100, "draw": 30, "loss": 0}    
+            if field_name =='outcome':
+                if outcome not in score_scenarios:
+                    raise ValueError(
+                        f"{field_name} must be win, lose or draw, "
+                        f"got {field_value!r}"
+                    )
 
         # --- Step 3: compute the universal `value` ----------------------
-        # A simple scoring rule: each cleared line is worth more at
-        # higher movess. The exact formula is a game-design choice; what
-        # matters architecturally is that we produce ONE integer.
-        value = outcome * 100 * (moves + 1)
+        # A simple scoring rule: 100 points for a win, 30 points 
+        # for a draw and 0 points for a loss.
+        value = score_scenarios[outcome]
 
         # --- Step 4: build the validated details dict -------------------
         details = {
