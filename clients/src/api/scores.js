@@ -88,3 +88,29 @@ export async function listScores(gameName) {
   }
   return response.json();
 }
+
+/**
+ * Request an AI recommendation for the logged-in user.
+ * Returns { advice, used_today, daily_limit }.
+ * Throws with a clear message on the daily-limit (429) case.
+ */
+export async function getRecommendation() {
+  const response = await fetch(`${API_BASE}/recommendations`, {
+    method: "POST",
+    headers: authHeaders(),        // carries the auth token
+  });
+
+  if (response.status === 429) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.detail || "Daily recommendation limit reached.");
+  }
+  if (response.status === 401) {
+    logout();
+    throw new Error("Please sign in to get advice.");
+  }
+  if (!response.ok) {
+    throw new Error(`Couldn't get advice (${response.status}).`);
+  }
+
+  return response.json();
+}
