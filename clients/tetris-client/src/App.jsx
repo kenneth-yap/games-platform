@@ -14,6 +14,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { isLoggedIn, logout, submitScore, listScores } from "./api/scores";
 import AuthForm from "./AuthForm";
+import TicTacToe from './TicTacToe';
 
 // --- Game constants --------------------------------------------------------
 const COLS = 10;
@@ -107,6 +108,12 @@ function MiniPiece({ shapeKey }) {
 }
 
 function App() {
+
+  // Create a button for two games 
+  const [game, setGame] = useState("tetris");
+
+
+
   const [grid, setGrid] = useState(emptyGrid);
   const [piece, setPiece] = useState(null);
   // The bag of upcoming piece keys. We keep enough to preview 3 ahead.
@@ -285,9 +292,23 @@ function App() {
   return (
     <div style={styles.page}>
       <div style={styles.panel}>
-        <h1 style={styles.title}>TETRIS</h1>
 
-        {/* Auth bar */}
+        <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center", marginBottom: "1rem" }}>
+          <button
+            style={styles.smallButton}
+            onClick={() => setGame("tetris")}
+          >
+            Tetris
+          </button>
+          <button
+            style={styles.smallButton}
+            onClick={() => setGame("tictactoe")}
+          >
+            Tic-Tac-Toe
+          </button>
+        </div>
+
+                {/* Auth bar */}
         {loggedIn ? (
           <div style={styles.authBar}>
             <span>Logged in</span>{" "}
@@ -300,6 +321,11 @@ function App() {
             <AuthForm onAuthChange={() => setLoggedIn(true)} />
           </div>
         )}
+        
+        {game === "tetris" ? (
+          <>
+        <h1 style={styles.title}>TETRIS</h1>
+
 
         <div style={styles.stats}>
           <span>Score: {score}</span>
@@ -366,7 +392,13 @@ function App() {
         <p style={styles.hint}>
           Arrows move/rotate · Down soft-drop · Space hard-drop · C hold
         </p>
+                  </>
+          ) : (
+            <TicTacToe />
+          )} 
+
       </div>
+    
     </div>
   );
 }
