@@ -1,20 +1,16 @@
-// Playable Tetris — complete, with authentication, next-piece preview, and hold.
+// Tetris — extracted into its own self-contained component.
 //
-// WHERE THIS GOES: clients/tetris-client/src/App.jsx
+// WHERE THIS GOES: clients/tetris-client/src/Tetris.jsx
 //
-// Auth: a guest can play freely; saving a score requires login. The login/
-// register form shows when logged out; on game-over, logged-in users submit
-// their score, guests get a "sign in to save" nudge.
-//
-// Game features: a 7-bag randomiser feeds a NEXT-piece queue (preview of the
-// upcoming 3), and a HOLD slot lets you stash one piece (once per drop).
+// All Tetris game logic, state, and UI live here. App.jsx is now a thin
+// shell (auth + game selection + advice) that simply renders <Tetris />.
+// This mirrors the backend's separation of concerns: each game is a
+// self-contained module; the shell knows nothing game-specific.
 //
 // Controls: arrows move/rotate, down soft-drops, space hard-drops, C holds.
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { isLoggedIn, logout, submitScore, listScores } from "./api/scores";
-import AuthForm from "./AuthForm";
-import TicTacToe from './TicTacToe';
+import { isLoggedIn, submitScore, listScores } from "./api/scores";
 
 // --- Game constants --------------------------------------------------------
 const COLS = 10;
@@ -36,11 +32,6 @@ function emptyGrid() {
   return Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY));
 }
 
-// --- The 7-bag randomiser --------------------------------------------------
-// Standard Tetris doesn't pick purely at random — it shuffles all 7 pieces
-// into a "bag" and deals them out, so you never get long droughts or floods
-// of one piece. We refill the bag whenever it runs low. This also gives us a
-// reliable QUEUE of upcoming pieces to preview.
 function shuffledBag() {
   const bag = [...SHAPE_KEYS];
   for (let i = bag.length - 1; i > 0; i--) {
@@ -50,7 +41,6 @@ function shuffledBag() {
   return bag;
 }
 
-// Make a piece object from a shape key, spawned near the top-centre.
 function makePiece(key) {
   return {
     key,
@@ -80,7 +70,6 @@ function collides(piece, grid) {
   });
 }
 
-// Draw a small preview of a shape (for the next-queue and hold box).
 function MiniPiece({ shapeKey }) {
   if (!shapeKey) return <div style={styles.miniEmpty} />;
   const { cells, color } = SHAPES[shapeKey];
@@ -107,18 +96,10 @@ function MiniPiece({ shapeKey }) {
   );
 }
 
-function App() {
-
-  // Create a button for two games 
-  const [game, setGame] = useState("tetris");
-
-
-
+function Tetris() {
   const [grid, setGrid] = useState(emptyGrid);
   const [piece, setPiece] = useState(null);
-  // The bag of upcoming piece keys. We keep enough to preview 3 ahead.
   const [queue, setQueue] = useState([]);
-  // The held piece key (null if none), and whether hold was used this drop.
   const [held, setHeld] = useState(null);
   const [holdUsed, setHoldUsed] = useState(false);
 
@@ -129,12 +110,12 @@ function App() {
   const [running, setRunning] = useState(false);
   const [highScores, setHighScores] = useState([]);
   const [submitMsg, setSubmitMsg] = useState(null);
-  const [loggedIn, setLoggedIn] = useState(isLoggedIn());
+  // Tetris checks login itself (to decide submit vs nudge), but does NOT
+  // own the login UI — that lives in the shell (App.jsx).
+  const loggedIn = isLoggedIn();
 
   const startTimeRef = useRef(null);
 
-  // Pull the next piece key from the queue, refilling the bag as needed so
-  // there are always at least a few upcoming pieces to preview.
   const pullFromQueue = useCallback((currentQueue) => {
     let q = [...currentQueue];
     while (q.length < 7) q = q.concat(shuffledBag());
@@ -142,7 +123,6 @@ function App() {
     return { nextKey, queue: q };
   }, []);
 
-  // Lock the current piece into the grid, clear full rows, score, spawn next.
   const lockPiece = useCallback((currentPiece, currentGrid) => {
     const newGrid = currentGrid.map((row) => [...row]);
     pieceCells(currentPiece).forEach(([r, c]) => {
@@ -163,7 +143,6 @@ function App() {
       });
     }
 
-    // Spawn the next piece from the queue. Hold becomes available again.
     const { nextKey, queue: newQueue } = pullFromQueue(queue);
     const next = makePiece(nextKey);
     setQueue(newQueue);
@@ -190,9 +169,6 @@ function App() {
     return false;
   }, [piece, grid, running, lockPiece]);
 
-  // HOLD: stash the current piece. If the slot is empty, take the next from
-  // the queue; otherwise swap. Allowed only once per drop (holdUsed guard)
-  // to prevent infinite stalling.
   const hold = useCallback(() => {
     if (!running || !piece || holdUsed) return;
     if (held === null) {
@@ -208,7 +184,6 @@ function App() {
     setHoldUsed(true);
   }, [running, piece, held, holdUsed, queue, pullFromQueue]);
 
-  // Gravity timer, speeds up with level.
   useEffect(() => {
     if (!running) return;
     const speed = Math.max(100, 800 - (level - 1) * 70);
@@ -216,10 +191,12 @@ function App() {
     return () => clearInterval(id);
   }, [running, level, move]);
 
-  // Keyboard controls.
   useEffect(() => {
     function onKey(e) {
       if (!running || !piece) return;
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(e.key)) {
+        e.preventDefault();
+      }
       if (e.key === "ArrowLeft") move(0, -1);
       else if (e.key === "ArrowRight") move(0, 1);
       else if (e.key === "ArrowDown") move(1, 0);
@@ -227,11 +204,10 @@ function App() {
         const r = rotate(piece);
         if (!collides(r, grid)) setPiece(r);
       } else if (e.key === " ") {
-        e.preventDefault();
         let p = piece;
         while (!collides({ ...p, row: p.row + 1 }, grid)) p = { ...p, row: p.row + 1 };
         lockPiece(p, grid);
-      } else if (e.key === "c" || e.key === "C") {
+      } else if (e.key === "Shift") {
         hold();
       }
     }
@@ -239,7 +215,6 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [piece, grid, running, move, lockPiece, hold]);
 
-  // On game over: logged-in users submit; guests get nudged.
   useEffect(() => {
     if (!gameOver) return;
     const duration = startTimeRef.current
@@ -265,7 +240,6 @@ function App() {
   }, [gameOver, lines, level, loggedIn]);
 
   function startGame() {
-    // Fresh bag, deal the first piece, reset everything.
     const { nextKey, queue: newQueue } = pullFromQueue([]);
     setGrid(emptyGrid());
     setQueue(newQueue);
@@ -281,7 +255,6 @@ function App() {
     setRunning(true);
   }
 
-  // Build the display grid (settled blocks + active piece overlaid).
   const display = grid.map((row) => [...row]);
   if ((running || gameOver) && piece) {
     pieceCells(piece).forEach(([r, c]) => {
@@ -290,133 +263,76 @@ function App() {
   }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.panel}>
+    <>
+      <h1 style={styles.title}>TETRIS</h1>
 
-        <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center", marginBottom: "1rem" }}>
-          <button
-            style={styles.smallButton}
-            onClick={() => setGame("tetris")}
-          >
-            Tetris
-          </button>
-          <button
-            style={styles.smallButton}
-            onClick={() => setGame("tictactoe")}
-          >
-            Tic-Tac-Toe
-          </button>
-        </div>
-
-                {/* Auth bar */}
-        {loggedIn ? (
-          <div style={styles.authBar}>
-            <span>Logged in</span>{" "}
-            <button style={styles.smallButton} onClick={() => { logout(); setLoggedIn(false); }}>
-              Log out
-            </button>
-          </div>
-        ) : (
-          <div style={{ marginBottom: "1rem" }}>
-            <AuthForm onAuthChange={() => setLoggedIn(true)} />
-          </div>
-        )}
-        
-        {game === "tetris" ? (
-          <>
-        <h1 style={styles.title}>TETRIS</h1>
-
-
-        <div style={styles.stats}>
-          <span>Score: {score}</span>
-          <span>Lines: {lines}</span>
-          <span>Level: {level}</span>
-        </div>
-
-        {/* Main play area: hold | board | next-queue */}
-        <div style={styles.playArea}>
-          {/* HOLD box */}
-          <div style={styles.sidebar}>
-            <h4 style={styles.sideLabel}>Hold</h4>
-            <div style={styles.miniBox}>
-              <MiniPiece shapeKey={held} />
-            </div>
-          </div>
-
-          {/* The board */}
-          <div style={styles.board}>
-            {display.map((row, r) =>
-              row.map((cell, c) => (
-                <div
-                  key={`${r}-${c}`}
-                  style={{ ...styles.cell, background: cell === EMPTY ? "#10131a" : cell }}
-                />
-              ))
-            )}
-          </div>
-
-          {/* NEXT queue: preview the upcoming 3 */}
-          <div style={styles.sidebar}>
-            <h4 style={styles.sideLabel}>Next</h4>
-            {queue.slice(0, 3).map((key, i) => (
-              <div key={i} style={styles.miniBox}>
-                <MiniPiece shapeKey={key} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {!running && !gameOver && (
-          <button style={styles.button} onClick={startGame}>Start</button>
-        )}
-        {gameOver && (
-          <div style={styles.overlay}>
-            <p style={styles.gameOver}>Game Over</p>
-            {submitMsg && <p style={styles.msg}>{submitMsg}</p>}
-            <button style={styles.button} onClick={startGame}>Play again</button>
-          </div>
-        )}
-
-        {highScores.length > 0 && (
-          <div style={styles.scores}>
-            <h3>Recent scores</h3>
-            {highScores.map((s) => (
-              <div key={s.id} style={styles.scoreRow}>
-                <span>{s.value}</span>
-                <span style={styles.scoreDetail}>{s.details?.lines_cleared ?? 0} lines</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <p style={styles.hint}>
-          Arrows move/rotate · Down soft-drop · Space hard-drop · C hold
-        </p>
-                  </>
-          ) : (
-            <TicTacToe />
-          )} 
-
+      <div style={styles.stats}>
+        <span>Score: {score}</span>
+        <span>Lines: {lines}</span>
+        <span>Level: {level}</span>
       </div>
-    
-    </div>
+
+      <div style={styles.playArea}>
+        <div style={styles.sidebar}>
+          <h4 style={styles.sideLabel}>Hold</h4>
+          <div style={styles.miniBox}>
+            <MiniPiece shapeKey={held} />
+          </div>
+        </div>
+
+        <div style={styles.board}>
+          {display.map((row, r) =>
+            row.map((cell, c) => (
+              <div
+                key={`${r}-${c}`}
+                style={{ ...styles.cell, background: cell === EMPTY ? "#10131a" : cell }}
+              />
+            ))
+          )}
+        </div>
+
+        <div style={styles.sidebar}>
+          <h4 style={styles.sideLabel}>Next</h4>
+          {queue.slice(0, 3).map((key, i) => (
+            <div key={i} style={styles.miniBox}>
+              <MiniPiece shapeKey={key} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {!running && !gameOver && (
+        <button style={styles.button} onClick={startGame}>Start</button>
+      )}
+      {gameOver && (
+        <div style={styles.overlay}>
+          <p style={styles.gameOver}>Game Over</p>
+          {submitMsg && <p style={styles.msg}>{submitMsg}</p>}
+          <button style={styles.button} onClick={startGame}>Play again</button>
+        </div>
+      )}
+
+      {highScores.length > 0 && (
+        <div style={styles.scores}>
+          <h3>Recent scores</h3>
+          {highScores.map((s) => (
+            <div key={s.id} style={styles.scoreRow}>
+              <span>{s.value}</span>
+              <span style={styles.scoreDetail}>{s.details?.lines_cleared ?? 0} lines</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p style={styles.hint}>
+        Arrows move/rotate · Down soft-drop · Space hard-drop · Shift hold
+      </p>
+    </>
   );
 }
 
 const styles = {
-  page: {
-    minHeight: "100vh", display: "flex", alignItems: "center",
-    justifyContent: "center", background: "#0a0c10", color: "#e6e8ec",
-    fontFamily: "'Courier New', monospace",
-  },
-  panel: { textAlign: "center" },
   title: { letterSpacing: "0.4em", fontWeight: 700, fontSize: "2rem", marginBottom: "0.5rem" },
-  authBar: { fontSize: "0.8rem", marginBottom: "1rem" },
-  smallButton: {
-    padding: "0.2rem 0.6rem", fontSize: "0.75rem", background: "#2a2f3a",
-    color: "#e6e8ec", border: "1px solid #3a3f4a", borderRadius: "3px",
-    cursor: "pointer", fontFamily: "inherit",
-  },
   stats: { display: "flex", gap: "1.5rem", justifyContent: "center", marginBottom: "1rem", fontSize: "0.9rem" },
   playArea: { display: "flex", gap: "1rem", justifyContent: "center", alignItems: "flex-start" },
   sidebar: { display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "center" },
@@ -447,4 +363,4 @@ const styles = {
   hint: { marginTop: "1.5rem", fontSize: "0.75rem", color: "#5a5f6a" },
 };
 
-export default App;
+export default Tetris;
