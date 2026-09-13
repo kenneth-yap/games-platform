@@ -21,8 +21,13 @@ class Score(SQLModel, table=True):
     # Unique reference number for this record (the primary key).
     id: int | None = Field(default=None, primary_key=True)
 
-    # WHO achieved it — links to a user (auth comes later).
-    user_id: int = Field(index=True)
+    # WHO achieved it — nullable for guest submissions; set for authenticated users.
+    user_id: int | None = Field(default=None, index=True)
+
+    # Guest identifier (UUID string) for unauthenticated players.
+    # Mutually exclusive with user_id: one or the other is set, never both.
+    # Guest scores are purged after 28 days by the startup cleanup task.
+    guest_id: str | None = Field(default=None, index=True)
 
     # WHICH game produced it, e.g. "tetris". Indexed because we'll
     # frequently filter "all scores for game X".

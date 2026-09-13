@@ -1,112 +1,212 @@
-// App — the shell.
-//
-// WHERE THIS GOES: clients/tetris-client/src/App.jsx
-//
-// This is now a THIN shell. It owns the app-wide concerns — authentication,
-// game selection, and the AI advisor — and renders whichever game is chosen.
-// It knows nothing game-specific; each game is a self-contained component
-// (Tetris.jsx, TicTacToe.jsx). This mirrors the backend's separation of
-// concerns on the frontend.
-
-import { useState } from "react";
-import { isLoggedIn, logout, getRecommendation } from "./api/scores";
+import { useState, useEffect } from "react";
+import { isLoggedIn, logout, ensureGuestId } from "./api/scores";
+import RetroBackground from "./RetroBackground";
 import AuthForm from "./AuthForm";
 import Tetris from "./Tetris";
 import TicTacToe from "./TicTacToe";
+import Snake from "./Snake";
+import Breakout from "./Breakout";
+
+const GAMES = [
+  { id: "tetris",    label: "TETRIS",      Component: Tetris },
+  { id: "tictactoe", label: "TIC·TAC·TOE", Component: TicTacToe },
+  { id: "snake",     label: "SNAKE",       Component: Snake },
+  { id: "breakout",  label: "BREAKOUT",    Component: Breakout },
+];
 
 function App() {
   const [game, setGame] = useState("tetris");
   const [loggedIn, setLoggedIn] = useState(isLoggedIn());
+  const [showAuth, setShowAuth] = useState(false);
 
-  // AI advice state (shell-level: the advisor is cross-game).
-  const [advice, setAdvice] = useState(null);
-  const [adviceQuota, setAdviceQuota] = useState(null);
-  const [adviceLoading, setAdviceLoading] = useState(false);
+  useEffect(() => {
+    ensureGuestId();
+  }, []);
 
-  async function handleGetAdvice() {
-    setAdviceLoading(true);
-    setAdvice(null);
-    try {
-      const result = await getRecommendation();
-      setAdvice(result.advice);
-      setAdviceQuota({ used: result.used_today, limit: result.daily_limit });
-    } catch (err) {
-      setAdvice(err.message);
-    } finally {
-      setAdviceLoading(false);
-    }
+  function handleLogout() {
+    logout();
+    setLoggedIn(false);
   }
 
+  function handleAuthChange() {
+    setLoggedIn(true);
+    setShowAuth(false);
+  }
+
+  const { Component: GameComponent } = GAMES.find(g => g.id === game);
+
   return (
-    <div style={styles.page}>
-      <div style={styles.panel}>
+    <>
+      <RetroBackground />
 
-        {/* Game selector */}
-        <div style={styles.selector}>
-          <button style={styles.smallButton} onClick={() => setGame("tetris")}>
-            Tetris
-          </button>
-          <button style={styles.smallButton} onClick={() => setGame("tictactoe")}>
-            Tic-Tac-Toe
-          </button>
-        </div>
-
-        {/* Auth bar — shell concern, shown for both games */}
-        {loggedIn ? (
+      <div style={styles.page}>
+        {/* Header */}
+        <header style={styles.header}>
+          <h1 style={styles.logo}>RETRO ARCADE</h1>
           <div style={styles.authBar}>
-            <span>Logged in</span>{" "}
-            <button style={styles.smallButton} onClick={() => { logout(); setLoggedIn(false); }}>
-              Log out
-            </button>
-          </div>
-        ) : (
-          <div style={{ marginBottom: "1rem" }}>
-            <AuthForm onAuthChange={() => setLoggedIn(true)} />
-          </div>
-        )}
-
-        {/* AI advice — shell concern, cross-game, on request only */}
-        {loggedIn && (
-          <div style={styles.adviceSection}>
-            <button style={styles.smallButton} onClick={handleGetAdvice} disabled={adviceLoading}>
-              {adviceLoading ? "Thinking..." : "Get advice"}
-            </button>
-            {adviceQuota && (
-              <p style={styles.quota}>{adviceQuota.used} of {adviceQuota.limit} used today</p>
+            {loggedIn ? (
+              <>
+                <span style={styles.authLabel}>SIGNED IN</span>
+                <button style={styles.authBtn} onClick={handleLogout}>SIGN OUT</button>
+              </>
+            ) : (
+              <>
+                <span style={styles.authLabel}>GUEST MODE</span>
+                <button style={{ ...styles.authBtn, ...styles.authBtnAccent }} onClick={() => setShowAuth(true)}>
+                  SIGN IN
+                </button>
+              </>
             )}
-            {advice && <p style={styles.advice}>{advice}</p>}
           </div>
+        </header>
+
+        {/* Game nav */}
+        <nav style={styles.nav}>
+          {GAMES.map(g => (
+            <button
+              key={g.id}
+              style={{ ...styles.navBtn, ...(game === g.id ? styles.navBtnActive : {}) }}
+              onClick={() => setGame(g.id)}
+            >
+              {g.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Game area */}
+        <main style={styles.main}>
+          <GameComponent loggedIn={loggedIn} />
+        </main>
+
+        {/* Guest notice */}
+        {!loggedIn && (
+          <p style={styles.guestNotice}>
+            PLAYING AS GUEST — SCORES SAVED FOR 28 DAYS
+          </p>
         )}
-
-        {/* The chosen game */}
-        {game === "tetris" ? <Tetris /> : <TicTacToe />}
-
       </div>
-    </div>
+
+      {/* Auth modal */}
+      {showAuth && (
+        <div style={styles.modalBackdrop} onClick={() => setShowAuth(false)}>
+          <div style={styles.modal} onClick={e => e.stopPropagation()}>
+            <button style={styles.closeBtn} onClick={() => setShowAuth(false)}>✕</button>
+            <p style={styles.modalTitle}>SIGN IN</p>
+            <AuthForm onAuthChange={handleAuthChange} />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
 const styles = {
   page: {
-    minHeight: "100vh", display: "flex", alignItems: "center",
-    justifyContent: "center", background: "#0a0c10", color: "#e6e8ec",
-    fontFamily: "'Courier New', monospace",
+    position: "relative",
+    zIndex: 1,
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    paddingBottom: "3rem",
   },
-  panel: { textAlign: "center" },
-  selector: { display: "flex", gap: "0.5rem", justifyContent: "center", marginBottom: "1rem" },
-  authBar: { fontSize: "0.8rem", marginBottom: "1rem" },
-  smallButton: {
-    padding: "0.2rem 0.6rem", fontSize: "0.75rem", background: "#2a2f3a",
-    color: "#e6e8ec", border: "1px solid #3a3f4a", borderRadius: "3px",
-    cursor: "pointer", fontFamily: "inherit",
+  header: {
+    width: "100%",
+    maxWidth: 640,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "1.5rem 1rem 1rem",
+    flexWrap: "wrap",
+    gap: "0.8rem",
   },
-  adviceSection: { marginBottom: "1rem", maxWidth: "320px", marginLeft: "auto", marginRight: "auto" },
-  quota: { fontSize: "0.72rem", color: "#8a8f99", marginTop: "0.4rem" },
-  advice: {
-    fontSize: "0.82rem", color: "#bfe6c0", marginTop: "0.6rem",
-    lineHeight: 1.5, textAlign: "left", whiteSpace: "pre-wrap",
-    wordBreak: "break-word", overflowWrap: "break-word",
-    background: "#10131a", padding: "0.6rem 0.8rem", borderRadius: "4px",
+  logo: {
+    fontSize: "1.1rem",
+    color: "#ffe600",
+    textShadow: "0 0 8px #ffe600, 0 0 22px #ffe600",
+    letterSpacing: "0.25em",
+    lineHeight: 1.3,
+  },
+  authBar: { display: "flex", alignItems: "center", gap: "0.8rem" },
+  authLabel: { fontSize: "0.65rem", color: "rgba(0,245,255,0.5)", letterSpacing: "0.1em" },
+  authBtn: {
+    fontSize: "0.65rem",
+    padding: "0.4rem 0.9rem",
+    background: "transparent",
+    color: "rgba(0,245,255,0.7)",
+    border: "1px solid rgba(0,245,255,0.35)",
+    letterSpacing: "0.1em",
+  },
+  authBtnAccent: {
+    color: "#ff2d78",
+    border: "1px solid #ff2d78",
+    textShadow: "0 0 6px #ff2d78",
+    boxShadow: "0 0 8px rgba(255,45,120,0.25)",
+  },
+  nav: {
+    display: "flex",
+    gap: "0.5rem",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    marginBottom: "2rem",
+    padding: "0 1rem",
+  },
+  navBtn: {
+    fontSize: "0.65rem",
+    padding: "0.5rem 1rem",
+    background: "transparent",
+    color: "rgba(0,245,255,0.5)",
+    border: "1px solid rgba(0,245,255,0.2)",
+    letterSpacing: "0.15em",
+  },
+  navBtnActive: {
+    color: "#00f5ff",
+    border: "1px solid #00f5ff",
+    textShadow: "0 0 6px #00f5ff",
+    boxShadow: "0 0 12px rgba(0,245,255,0.25)",
+  },
+  main: { width: "100%", display: "flex", justifyContent: "center", padding: "0 1rem" },
+  guestNotice: {
+    marginTop: "2rem",
+    fontSize: "0.6rem",
+    color: "rgba(0,245,255,0.25)",
+    letterSpacing: "0.12em",
+    textAlign: "center",
+  },
+  modalBackdrop: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.88)",
+    zIndex: 200,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modal: {
+    position: "relative",
+    background: "#0a0014",
+    border: "2px solid rgba(0,245,255,0.4)",
+    padding: "2rem",
+    minWidth: 280,
+    boxShadow: "0 0 30px rgba(0,245,255,0.15)",
+  },
+  closeBtn: {
+    position: "absolute",
+    top: "0.8rem",
+    right: "0.8rem",
+    background: "transparent",
+    border: "none",
+    color: "rgba(0,245,255,0.5)",
+    fontSize: "0.9rem",
+    cursor: "pointer",
+  },
+  modalTitle: {
+    fontSize: "0.9rem",
+    color: "#00f5ff",
+    textShadow: "0 0 6px #00f5ff",
+    marginBottom: "1.2rem",
+    letterSpacing: "0.2em",
+    textAlign: "center",
   },
 };
 

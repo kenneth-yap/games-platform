@@ -49,3 +49,20 @@ def get_current_user(
         )
 
     return user
+
+
+def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    session: Session = Depends(get_session),
+) -> "User | None":
+    """Return the authenticated User if a valid Bearer token is present, else None.
+
+    Never raises — unauthenticated requests simply get None, allowing
+    endpoints to serve both authenticated and guest callers.
+    """
+    if credentials is None:
+        return None
+    user_id = decode_access_token(credentials.credentials)
+    if user_id is None:
+        return None
+    return session.get(User, user_id)

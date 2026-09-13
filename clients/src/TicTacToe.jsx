@@ -17,7 +17,7 @@
 // your backend contract can validate and score it.
 
 import { useState } from "react";
-import { submitScore, isLoggedIn } from "./api/scores";
+import { submitScore } from "./api/scores";
 
 // The 8 winning lines (rows, columns, diagonals) as board-index triples.
 const WIN_LINES = [
@@ -59,13 +59,12 @@ function computerMove(board) {
   return free[Math.floor(Math.random() * free.length)];
 }
 
-function TicTacToe() {
+function TicTacToe({ loggedIn }) {
   const [board, setBoard] = useState(Array(9).fill(null));
-  const [playerTurn, setPlayerTurn] = useState(true);   // player is "X"
-  const [result, setResult] = useState(null);            // "win" | "loss" | "draw" | null
+  const [playerTurn, setPlayerTurn] = useState(true);
+  const [result, setResult] = useState(null);
   const [submitMsg, setSubmitMsg] = useState(null);
   const [moves, setMoves] = useState(0);
-  const [loggedIn] = useState(isLoggedIn());
 
   // Resolve the board into a result, and if the game is over, submit a score.
   function resolve(newBoard, movesPlayed) {
@@ -82,19 +81,12 @@ function TicTacToe() {
     setBoard(finalBoard);
     setResult(outcome);
 
-    if (!loggedIn) {
-      setSubmitMsg("Sign in to save your result!");
-      return true;
-    }
-
-    // Submit the result to the backend. The raw payload describes the
-    // outcome; your backend contract validates it and computes the value.
     submitScore("tictactoe", {
-      outcome: outcome,          // "win" | "loss" | "draw"
-      moves: movesPlayed,        // how many moves the player made
-      went_first: true,          // player always goes first here
+      outcome: outcome,
+      moves: movesPlayed,
+      went_first: true,
     })
-      .then(() => setSubmitMsg("Result saved!"))
+      .then(() => setSubmitMsg(loggedIn ? "RESULT SAVED!" : "GUEST SCORE (28 DAYS)"))
       .catch((err) => setSubmitMsg(err.message));
     return true;
   }
@@ -164,25 +156,26 @@ function TicTacToe() {
 }
 
 const styles = {
-  wrap: { textAlign: "center", fontFamily: "'Courier New', monospace", color: "#e6e8ec" },
-  title: { letterSpacing: "0.3em", fontWeight: 700, fontSize: "1.5rem", marginBottom: "0.5rem" },
-  status: { fontSize: "0.9rem", color: "#8a8f99", marginBottom: "1rem", minHeight: "1.2rem" },
+  wrap: { textAlign: "center", color: "#00f5ff" },
+  title: { letterSpacing: "0.3em", fontSize: "1.5rem", marginBottom: "0.8rem", color: "#bf5fff", textShadow: "0 0 8px #bf5fff, 0 0 20px #bf5fff" },
+  status: { fontSize: "0.72rem", color: "rgba(0,245,255,0.55)", marginBottom: "1.2rem", minHeight: "1.2rem", letterSpacing: "0.1em" },
   board: {
-    display: "grid", gridTemplateColumns: "repeat(3, 72px)",
-    gridTemplateRows: "repeat(3, 72px)", gap: "4px",
+    display: "grid", gridTemplateColumns: "repeat(3, 80px)",
+    gridTemplateRows: "repeat(3, 80px)", gap: "4px",
     justifyContent: "center", margin: "0 auto",
   },
   cell: {
-    width: 72, height: 72, fontSize: "2rem", fontWeight: 700,
-    background: "#10131a", color: "#5ad1c8", border: "1px solid #1c2029",
-    borderRadius: "4px", cursor: "pointer", fontFamily: "inherit",
+    width: 80, height: 80, fontSize: "1.8rem",
+    background: "#060010", border: "1px solid rgba(191,95,255,0.3)",
+    cursor: "pointer", color: "#ff2d78",
   },
-  overlay: { marginTop: "1rem" },
-  msg: { fontSize: "0.85rem", color: "#7bc96f", marginBottom: "0.5rem" },
+  overlay: { marginTop: "1.2rem" },
+  msg: { fontSize: "0.75rem", color: "#39ff14", marginBottom: "0.6rem" },
   button: {
-    padding: "0.6rem 1.6rem", fontSize: "1rem", background: "#5ad1c8",
-    color: "#0a0c10", border: "none", borderRadius: "4px", cursor: "pointer",
-    fontWeight: 700, fontFamily: "inherit", letterSpacing: "0.1em",
+    padding: "0.6rem 1.6rem", fontSize: "0.72rem", background: "transparent",
+    color: "#bf5fff", border: "2px solid #bf5fff", cursor: "pointer",
+    letterSpacing: "0.15em", textShadow: "0 0 6px #bf5fff",
+    boxShadow: "0 0 10px rgba(191,95,255,0.3)",
   },
 };
 

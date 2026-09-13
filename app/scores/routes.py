@@ -1,21 +1,15 @@
-"""Score submission and retrieval endpoints.
+"""Score submission and retrieval endpoints."""
 
-Game-agnostic: works for ANY registered game by looking it up in the
-registry and calling the contract. This is the vertical slice tying
-together the contract, the model, and the database.
-"""
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlmodel import Session, select
 
 from app.core.database import get_session
 from app.games.registry import get_game
 from app.scores.models import Score
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_optional_user
 from app.auth.models import User
 
-# A router groups related endpoints; main.py will mount it onto the app.
 router = APIRouter(prefix="/scores", tags=["scores"])
 
 
@@ -24,38 +18,34 @@ def submit_score(
     game_name: str,
     raw_data: dict,
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user)
+    current_user: User | None = Depends(get_optional_user),
+    x_guest_id: str | None = Header(default=None),
 ) -> Score:
-    """Submit a raw score for a game; validate via the contract, then store.
+    """Submit a score for a game. Works for both authenticated users and guests.
 
-    Flow: look up the game → contract validates raw_data → build a Score
-    → persist it → return the stored record.
+    Authenticated: pass Authorization: Bearer <token>.
+    Guest: pass X-Guest-ID: <uuid>. Guest scores auto-delete after 28 days.
     """
-    # 1. Find the game. Unknown game → clear client error, not a crash.
+    if current_user is None and not x_guest_id:
+        raise HTTPException(status_code=400, detail="Provide Authorization or X-Guest-ID header.")
+
     game = get_game(game_name)
     if game is None:
         raise HTTPException(status_code=404, detail=f"Unknown game: {game_name}")
 
-    # 2. The CONTRACT does its job: validate and shape the raw submission.
-    #    A bad payload raises ValueError, which we turn into a 400.
     try:
         value, details = game.validate_and_build(raw_data)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    # 3. Build the Score record from the validated result.
-    #    TODO(auth): replace hardcoded user_id with the authenticated user
-    #    once authentication exists. Placeholder lets us prove storage now.
     score = Score(
-        user_id=current_user.id,                # ← PLACEHOLDER, replaced when auth lands
+        user_id=current_user.id if current_user else None,
+        guest_id=None if current_user else x_guest_id,
         game=game.name,
         value=value,
         details=details,
     )
 
-    # 4. Persist via the per-request session. add → commit → refresh
-    #    (refresh reloads the row so the auto-generated id/created_at
-    #    are populated on the object we return).
     session.add(score)
     session.commit()
     session.refresh(score)
@@ -68,11 +58,7 @@ def list_scores(
     game_name: str,
     session: Session = Depends(get_session),
 ) -> list[Score]:
-    """List stored scores for a game, newest first.
-
-    A first taste of the read path your analytics/AI layer will later use
-    through its own clean interface.
-    """
+    """List stored scores for a game, newest first."""
     statement = (
         select(Score)
         .where(Score.game == game_name)

@@ -1,6 +1,3 @@
-// A minimal login/register form. Calls the auth functions and reports
-// success/failure. On login success, notifies the parent via onAuthChange.
-
 import { useState } from "react";
 import { register, login } from "./api/scores";
 
@@ -8,13 +5,15 @@ function AuthForm({ onAuthChange }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState(null);
+  const [isError, setIsError] = useState(false);
 
   async function handleLogin() {
     setMessage(null);
     try {
       await login(username, password);
-      onAuthChange();              // tell the app we're now logged in
+      onAuthChange();
     } catch (err) {
+      setIsError(true);
       setMessage(err.message);
     }
   }
@@ -23,35 +22,71 @@ function AuthForm({ onAuthChange }) {
     setMessage(null);
     try {
       await register(username, password);
-      setMessage("Account created — now log in.");
+      setIsError(false);
+      setMessage("ACCOUNT CREATED — NOW LOG IN.");
     } catch (err) {
+      setIsError(true);
       setMessage(err.message);
     }
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", maxWidth: "240px", margin: "0 auto" }}>
+    <div style={styles.wrap}>
       <input
         type="text"
-        placeholder="Username"
+        placeholder="USERNAME"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
-        style={{ padding: "0.4rem" }}
+        style={styles.input}
       />
       <input
         type="password"
-        placeholder="Password"
+        placeholder="PASSWORD"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        style={{ padding: "0.4rem" }}
+        style={styles.input}
+        onKeyDown={(e) => e.key === "Enter" && handleLogin()}
       />
-      <div style={{ display: "flex", gap: "0.5rem" }}>
-        <button onClick={handleLogin} style={{ flex: 1 }}>Log in</button>
-        <button onClick={handleRegister} style={{ flex: 1 }}>Register</button>
+      <div style={styles.btnRow}>
+        <button onClick={handleLogin} style={{ ...styles.btn, ...styles.btnLogin }}>LOG IN</button>
+        <button onClick={handleRegister} style={styles.btn}>REGISTER</button>
       </div>
-      {message && <p style={{ fontSize: "0.8rem", color: "#e0a96c" }}>{message}</p>}
+      {message && (
+        <p style={{ ...styles.msg, color: isError ? "#ff8c00" : "#39ff14" }}>{message}</p>
+      )}
     </div>
   );
 }
+
+const styles = {
+  wrap: { display: "flex", flexDirection: "column", gap: "0.8rem" },
+  input: {
+    padding: "0.6rem 0.8rem",
+    background: "rgba(0,245,255,0.05)",
+    border: "1px solid rgba(0,245,255,0.3)",
+    color: "#00f5ff",
+    fontSize: "0.7rem",
+    letterSpacing: "0.1em",
+    outline: "none",
+    width: "100%",
+  },
+  btnRow: { display: "flex", gap: "0.6rem" },
+  btn: {
+    flex: 1,
+    padding: "0.6rem 0",
+    fontSize: "0.65rem",
+    background: "transparent",
+    color: "rgba(0,245,255,0.7)",
+    border: "1px solid rgba(0,245,255,0.3)",
+    letterSpacing: "0.12em",
+    cursor: "pointer",
+  },
+  btnLogin: {
+    color: "#ff2d78",
+    border: "1px solid #ff2d78",
+    textShadow: "0 0 6px #ff2d78",
+  },
+  msg: { fontSize: "0.65rem", letterSpacing: "0.08em", marginTop: "0.2rem" },
+};
 
 export default AuthForm;

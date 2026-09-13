@@ -21,27 +21,19 @@ from app.scores.routes import router as scores_router
 from app.auth import models as _auth_models  # noqa: F401
 from app.auth.routes import router as auth_router
 
-from app.ai import models as _ai_models  # noqa: F401
-from app.ai.routes import router as ai_router
+from app.scores.cleanup import cleanup_expired_guest_scores
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Run startup/shutdown logic.
-
-    On startup, ensure the database tables exist. This runs once when
-    the server boots — the equivalent of laying the foundation before
-    anyone tries to store anything in it.
-    """
     create_db_and_tables()
+    cleanup_expired_guest_scores()
     yield
-    # (shutdown logic, if any, would go after the yield)
 
 # The single application instance. Everything (routes, middleware,
 # startup hooks) will attach to this object as the project grows.
 app = FastAPI(title="Games Platform", lifespan=lifespan)
 app.include_router(scores_router)
 app.include_router(auth_router)
-app.include_router(ai_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,  # only trusted frontend origins

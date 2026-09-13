@@ -9,13 +9,14 @@ existing endpoint serves it with zero changes.
 from app.games.base import Game
 from app.games.tetris.logic import Tetris
 from app.games.tictactoe.logic import TicTacToe
+from app.games.snake.logic import Snake
+from app.games.breakout.logic import Breakout
 
-# The single source of truth for "which games exist". Keys are the
-# identifier strings that arrive in requests and get stored in the
-# Score.game column.
 GAMES: dict[str, Game] = {
     "tetris": Tetris(),
-    "tictactoe": TicTacToe(),   # ← later, one line, nothing else changes
+    "tictactoe": TicTacToe(),
+    "snake": Snake(),
+    "breakout": Breakout(),
 }
 
 
