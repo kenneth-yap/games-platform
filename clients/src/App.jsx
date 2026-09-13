@@ -6,12 +6,16 @@ import Tetris from "./Tetris";
 import TicTacToe from "./TicTacToe";
 import Snake from "./Snake";
 import Breakout from "./Breakout";
+import SpaceInvaders from "./SpaceInvaders";
+import Asteroids from "./Asteroids";
 
 const GAMES = [
-  { id: "tetris",    label: "TETRIS",      Component: Tetris },
-  { id: "tictactoe", label: "TIC·TAC·TOE", Component: TicTacToe },
-  { id: "snake",     label: "SNAKE",       Component: Snake },
-  { id: "breakout",  label: "BREAKOUT",    Component: Breakout },
+  { id: "tetris",        label: "TETRIS",         Component: Tetris },
+  { id: "tictactoe",     label: "TIC·TAC·TOE",    Component: TicTacToe },
+  { id: "snake",         label: "SNAKE",          Component: Snake },
+  { id: "breakout",      label: "BREAKOUT",       Component: Breakout },
+  { id: "spaceinvaders", label: "SPACE INVADERS", Component: SpaceInvaders },
+  { id: "asteroids",     label: "ASTEROIDS",      Component: Asteroids },
 ];
 
 function App() {

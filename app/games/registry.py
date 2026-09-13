@@ -11,12 +11,16 @@ from app.games.tetris.logic import Tetris
 from app.games.tictactoe.logic import TicTacToe
 from app.games.snake.logic import Snake
 from app.games.breakout.logic import Breakout
+from app.games.spaceinvaders.logic import SpaceInvaders
+from app.games.asteroids.logic import Asteroids
 
 GAMES: dict[str, Game] = {
     "tetris": Tetris(),
     "tictactoe": TicTacToe(),
     "snake": Snake(),
     "breakout": Breakout(),
+    "spaceinvaders": SpaceInvaders(),
+    "asteroids": Asteroids(),
 }
 
 
