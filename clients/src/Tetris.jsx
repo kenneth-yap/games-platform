@@ -10,7 +10,7 @@
 // Controls: arrows move/rotate, down soft-drops, space hard-drops, C holds.
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { isLoggedIn, submitScore, listScores } from "./api/scores";
+import { submitScore, listScores } from "./api/scores";
 
 // --- Game constants --------------------------------------------------------
 const COLS = 10;
@@ -96,7 +96,7 @@ function MiniPiece({ shapeKey }) {
   );
 }
 
-function Tetris() {
+function Tetris({ loggedIn }) {
   const [grid, setGrid] = useState(emptyGrid);
   const [piece, setPiece] = useState(null);
   const [queue, setQueue] = useState([]);
@@ -110,9 +110,6 @@ function Tetris() {
   const [running, setRunning] = useState(false);
   const [highScores, setHighScores] = useState([]);
   const [submitMsg, setSubmitMsg] = useState(null);
-  // Tetris checks login itself (to decide submit vs nudge), but does NOT
-  // own the login UI — that lives in the shell (App.jsx).
-  const loggedIn = isLoggedIn();
 
   const startTimeRef = useRef(null);
 
@@ -221,18 +218,13 @@ function Tetris() {
       ? Math.round((Date.now() - startTimeRef.current) / 1000)
       : 0;
 
-    if (!loggedIn) {
-      setSubmitMsg("Sign in to save your score!");
-      return;
-    }
-
     submitScore("tetris", {
       lines_cleared: lines,
       level: level,
       duration_seconds: duration,
     })
       .then(() => {
-        setSubmitMsg("Score submitted!");
+        setSubmitMsg(loggedIn ? "SCORE SAVED!" : "GUEST SCORE (28 DAYS)");
         return listScores("tetris");
       })
       .then((scores) => setHighScores(scores.slice(0, 5)))
@@ -285,7 +277,7 @@ function Tetris() {
             row.map((cell, c) => (
               <div
                 key={`${r}-${c}`}
-                style={{ ...styles.cell, background: cell === EMPTY ? "#10131a" : cell }}
+                style={{ ...styles.cell, background: cell === EMPTY ? "#060010" : cell }}
               />
             ))
           )}
@@ -332,35 +324,37 @@ function Tetris() {
 }
 
 const styles = {
-  title: { letterSpacing: "0.4em", fontWeight: 700, fontSize: "2rem", marginBottom: "0.5rem" },
-  stats: { display: "flex", gap: "1.5rem", justifyContent: "center", marginBottom: "1rem", fontSize: "0.9rem" },
+  title: { letterSpacing: "0.4em", fontSize: "1.8rem", marginBottom: "0.8rem", color: "#00f5ff", textShadow: "0 0 8px #00f5ff, 0 0 20px #00f5ff" },
+  stats: { display: "flex", gap: "1.5rem", justifyContent: "center", marginBottom: "1rem", fontSize: "0.72rem", color: "#00f5ff" },
   playArea: { display: "flex", gap: "1rem", justifyContent: "center", alignItems: "flex-start" },
   sidebar: { display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "center" },
-  sideLabel: { fontSize: "0.75rem", color: "#8a8f99", margin: "0 0 0.25rem 0", letterSpacing: "0.1em" },
+  sideLabel: { fontSize: "0.6rem", color: "rgba(0,245,255,0.4)", margin: "0 0 0.25rem 0", letterSpacing: "0.1em" },
   miniBox: {
     width: 56, height: 56, display: "flex", alignItems: "center",
-    justifyContent: "center", background: "#10131a", borderRadius: "4px",
+    justifyContent: "center", background: "#060010",
+    border: "1px solid rgba(0,245,255,0.15)",
   },
   miniEmpty: { width: 12, height: 12 },
   board: {
     display: "grid", gridTemplateColumns: `repeat(${COLS}, 24px)`,
     gridTemplateRows: `repeat(${ROWS}, 24px)`, gap: "1px",
-    background: "#1c2029", padding: "4px", borderRadius: "4px",
+    background: "rgba(0,245,255,0.1)", padding: "4px",
+    border: "2px solid rgba(0,245,255,0.3)",
   },
-  cell: { width: 24, height: 24, borderRadius: "2px" },
+  cell: { width: 24, height: 24 },
   button: {
-    marginTop: "1rem", padding: "0.6rem 1.6rem", fontSize: "1rem",
-    background: "#5ad1c8", color: "#0a0c10", border: "none",
-    borderRadius: "4px", cursor: "pointer", fontWeight: 700,
-    fontFamily: "inherit", letterSpacing: "0.1em",
+    marginTop: "1rem", padding: "0.6rem 1.6rem", fontSize: "0.72rem",
+    background: "transparent", color: "#00f5ff", border: "2px solid #00f5ff",
+    cursor: "pointer", letterSpacing: "0.15em",
+    textShadow: "0 0 6px #00f5ff", boxShadow: "0 0 10px rgba(0,245,255,0.3)",
   },
   overlay: { marginTop: "1rem" },
-  gameOver: { fontSize: "1.4rem", color: "#e06c6c", fontWeight: 700 },
-  msg: { fontSize: "0.85rem", color: "#7bc96f" },
-  scores: { marginTop: "1.5rem", fontSize: "0.85rem", textAlign: "left", width: "260px", marginLeft: "auto", marginRight: "auto" },
-  scoreRow: { display: "flex", justifyContent: "space-between", padding: "0.2rem 0", borderBottom: "1px solid #1c2029" },
-  scoreDetail: { color: "#8a8f99" },
-  hint: { marginTop: "1.5rem", fontSize: "0.75rem", color: "#5a5f6a" },
+  gameOver: { fontSize: "1.4rem", color: "#ff2d78", textShadow: "0 0 8px #ff2d78" },
+  msg: { fontSize: "0.75rem", color: "#39ff14", marginTop: "0.5rem" },
+  scores: { marginTop: "1.5rem", fontSize: "0.72rem", textAlign: "left", width: "260px", marginLeft: "auto", marginRight: "auto" },
+  scoreRow: { display: "flex", justifyContent: "space-between", padding: "0.2rem 0", borderBottom: "1px solid rgba(0,245,255,0.1)" },
+  scoreDetail: { color: "rgba(0,245,255,0.4)" },
+  hint: { marginTop: "1.5rem", fontSize: "0.6rem", color: "rgba(0,245,255,0.25)", letterSpacing: "0.1em" },
 };
 
 export default Tetris;
